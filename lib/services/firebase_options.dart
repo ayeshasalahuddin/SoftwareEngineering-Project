@@ -40,8 +40,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
+    apiKey: 'AIzaSyDowvRCFPllwvjC4WEv0g2VUfa-vlJU24s',
+    appId: '1:25186592790:android:c0e02dc489332aef5e2d37',
     messagingSenderId: '25186592790',
     projectId: 'unimate-94265',
     storageBucket: 'unimate-94265.firebasestorage.app',
