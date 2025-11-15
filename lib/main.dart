@@ -36,10 +36,12 @@ class StudentHubApp extends StatelessWidget {
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor: Color(0xFF6B8E68),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+          shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+  ),
+),
       ),
       home: AuthWrapper(),
     );
