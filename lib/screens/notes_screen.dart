@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show File;
-import 'dart:html' show AnchorElement, document;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class NotesScreen extends StatefulWidget {
   const NotesScreen({Key? key}) : super(key: key);
@@ -69,7 +69,6 @@ class _NotesScreenState extends State<NotesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // File size info
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -139,7 +138,6 @@ class _NotesScreenState extends State<NotesScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // File Picker Area
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -207,7 +205,6 @@ class _NotesScreenState extends State<NotesScreen> {
                             if (result != null) {
                               final file = result.files.first;
                               
-                              // Check file size (1MB = 1048576 bytes)
                               if (file.size > 1048576) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -276,18 +273,9 @@ class _NotesScreenState extends State<NotesScreen> {
                     final userDoc = await _firestore.collection('users').doc(uid).get();
                     final userName = userDoc.data()?['name'] ?? 'Anonymous';
 
-                    // Convert file to base64
-                    String base64File;
-                    if (kIsWeb) {
-                      // For web
-                      base64File = base64Encode(selectedFile!.bytes!);
-                    } else {
-                      // For mobile
-                      final bytes = await File(selectedFile!.path!).readAsBytes();
-                      base64File = base64Encode(bytes);
-                    }
-
-                    // Get file extension
+                    // Read file and convert to base64
+                    final bytes = await File(selectedFile!.path!).readAsBytes();
+                    final base64File = base64Encode(bytes);
                     final extension = selectedFile!.extension ?? 'pdf';
 
                     // Save to Firestore
@@ -347,7 +335,7 @@ class _NotesScreenState extends State<NotesScreen> {
 
   Future<void> _downloadFile(String base64Data, String fileName, String extension, String noteId) async {
     try {
-      // Increment download count first
+      // Increment download count
       await _firestore.collection('notes').doc(noteId).update({
         'downloads': FieldValue.increment(1),
       });
@@ -355,40 +343,64 @@ class _NotesScreenState extends State<NotesScreen> {
       // Decode base64
       final bytes = base64Decode(base64Data);
 
-      if (kIsWeb) {
-        // For web - create a download link
-        final blob = bytes;
-        final url = Uri.dataFromBytes(blob, mimeType: _getMimeType(extension));
-        
-        // Create download link (this will open in new tab on web)
-        final anchor = document.createElement('a') as AnchorElement
-          ..href = url.toString()
-          ..download = fileName
-          ..style.display = 'none';
-        
-        document.body?.append(anchor);
-        anchor.click();
-        anchor.remove();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Download started! Check your downloads folder.'),
-              backgroundColor: Colors.green,
-            ),
-          );
+      // Request storage permission
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        status = await Permission.storage.request();
+        if (!status.isGranted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Storage permission denied. Please enable it in settings.'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
         }
-      } else {
-        // For mobile - save to downloads (requires permission)
+      }
+
+      // Get Downloads directory
+      Directory? directory = Directory('/storage/emulated/0/Download');
+      
+      // If doesn't exist, use app directory
+      if (!await directory.exists()) {
+        directory = await getExternalStorageDirectory();
+      }
+
+      if (directory == null) {
+        throw Exception('Could not access storage');
+      }
+
+      // Create file path
+      String filePath = '${directory.path}/$fileName';
+      File file = File(filePath);
+      
+      // If file exists, add number to filename
+      int counter = 1;
+      while (await file.exists()) {
+        final nameParts = fileName.split('.');
+        final nameWithoutExt = nameParts.sublist(0, nameParts.length - 1).join('.');
+        final ext = nameParts.last;
+        filePath = '${directory.path}/${nameWithoutExt}_$counter.$ext';
+        file = File(filePath);
+        counter++;
+      }
+
+      // Write file
+      await file.writeAsBytes(bytes);
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('File: $fileName\nSize: ${_formatFileSize(bytes.length)}'),
+            content: Text('Downloaded to: Download/$fileName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
-              label: 'View',
-              onPressed: () {
-                // On mobile, you could use path_provider and open_file packages
-                // For now, just show file info
-              },
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {},
             ),
           ),
         );
@@ -399,23 +411,10 @@ class _NotesScreenState extends State<NotesScreen> {
           SnackBar(
             content: Text('Download failed: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
-    }
-  }
-
-  String _getMimeType(String extension) {
-    switch (extension.toLowerCase()) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      default:
-        return 'application/octet-stream';
     }
   }
 
@@ -581,7 +580,6 @@ class _NotesScreenState extends State<NotesScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Row
                       Row(
                         children: [
                           Container(
@@ -625,8 +623,6 @@ class _NotesScreenState extends State<NotesScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      // Title
                       Text(
                         data['title'] ?? 'Untitled',
                         style: const TextStyle(
@@ -635,8 +631,6 @@ class _NotesScreenState extends State<NotesScreen> {
                           color: Color(0xFF2C3E2C),
                         ),
                       ),
-
-                      // Description
                       if (data['description'] != null && data['description'].toString().isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -648,8 +642,6 @@ class _NotesScreenState extends State<NotesScreen> {
                           ),
                         ),
                       ],
-
-                      // File Info Card
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -694,10 +686,7 @@ class _NotesScreenState extends State<NotesScreen> {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 12),
-
-                      // Info Row
                       Row(
                         children: [
                           Icon(Icons.person, size: 16, color: Colors.grey[600]),
@@ -721,15 +710,11 @@ class _NotesScreenState extends State<NotesScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 16),
                       const Divider(height: 1),
                       const SizedBox(height: 12),
-
-                      // Action Buttons Row
                       Row(
                         children: [
-                          // Download Button
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () => _downloadFile(
@@ -751,8 +736,6 @@ class _NotesScreenState extends State<NotesScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-
-                          // Like Button
                           Container(
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey[300]!),
@@ -780,8 +763,6 @@ class _NotesScreenState extends State<NotesScreen> {
                               ),
                             ),
                           ),
-
-                          // Delete Button (only for owner)
                           if (data['uploaderId'] == FirebaseAuth.instance.currentUser?.uid) ...[
                             const SizedBox(width: 8),
                             IconButton(
@@ -828,8 +809,6 @@ class _NotesScreenState extends State<NotesScreen> {
                           ],
                         ],
                       ),
-
-                      // Stats Row
                       if (data['downloads'] != null && data['downloads'] > 0) ...[
                         const SizedBox(height: 8),
                         Row(
@@ -857,4 +836,3 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 }
-

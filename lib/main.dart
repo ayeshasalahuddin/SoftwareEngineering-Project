@@ -43,7 +43,6 @@ class StudentHubApp extends StatelessWidget {
   ),
 ),
       ),
-      home: AuthWrapper(),
     );
   }
 }
