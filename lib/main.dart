@@ -1,4 +1,3 @@
-// ============ main.dart ============
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/firebase_options.dart';
@@ -9,7 +8,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const StudentHubApp());
+  runApp(StudentHubApp());
 }
 
 class StudentHubApp extends StatelessWidget {
@@ -42,7 +41,7 @@ class StudentHubApp extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
-      home: const AuthWrapper(),
+      home: AuthWrapper(),
     );
   }
 }
