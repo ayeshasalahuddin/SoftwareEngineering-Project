@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access to all users under the conditions
+    match /notes/{document} {
+      allow read: if request.auth != null; // Only authenticated users can read
+      allow write: if request.auth != null; // Only authenticated users can write
+    }
+    
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Users can write their own data
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /courses/{document} {
+      allow read: if request.auth != null; // Only authenticated users can read courses
+    }
+  }
+}

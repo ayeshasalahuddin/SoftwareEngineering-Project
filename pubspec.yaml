@@ -44,6 +44,7 @@ dependencies:
   file_picker: ^10.3.6
   path_provider: ^2.1.1  # For getting device storage paths
   permission_handler: ^11.0.1  # For storage permissions
+  open_file: ^3.3.2
 
 dev_dependencies:
   flutter_test:
