@@ -15,6 +15,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _mobileController = TextEditingController(); // New controller for mobile
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -48,6 +49,7 @@ class _SignupScreenState extends State<SignupScreen> {
       await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set({
         'name': _nameController.text.trim(),
         'email': email,
+        'mobile': _mobileController.text.trim(), // Store mobile number
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -111,6 +113,27 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _mobileController, // Mobile number field
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Mobile Number',
+                    hintText: 'e.g., 03001234567',
+                    prefixIcon: const Icon(Icons.phone),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  validator: (v) {
+                      if (v == null || v.isEmpty) return 'Mobile number required';
+                      final cleaned = v.replaceAll(RegExp(r'[^0-9]'), '');
+                      if (!RegExp(r'^03[0-9]{9}$').hasMatch(cleaned)) {
+                     return 'Enter valid mobile number(03XXXXXXXXX)';
+                      }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
@@ -156,6 +179,7 @@ class _SignupScreenState extends State<SignupScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _mobileController.dispose(); // Dispose mobile controller
     _passwordController.dispose();
     super.dispose();
   }
